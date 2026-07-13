@@ -1,6 +1,6 @@
 ---
 name: update-repo-docs
-description: "Updates repository documentation by aligning or creating a root README.md, summarizing related repositories and dependencies, and creating CODEOWNERS only when absent. Use when asked to document a repository, refresh README content, explain high-level system connections, or add ownership metadata from contributor history."
+description: "Updates repository documentation by aligning or creating a root README.md, summarizing related repositories and dependencies. Use when asked to document a repository, refresh README content, explain high-level system connections, or add ownership metadata from contributor history."
 ---
 
 # Update Repository Docs
@@ -47,9 +47,9 @@ checkout:
 
 | Value | Behavior |
 |---|---|
-| `1` (default) | Shallow clone — only the target commit. Not enough to infer ownership from history. |
-| `0` | Full git history. Required for contributor-based CODEOWNERS inference. |
-| `N > 1` | The N most recent commits. Useful when only recent contributors matter. |
+| `1` (default) | Shallow clone — only the target commit. |
+| `0` | Full git history. |
+| `N > 1` | The N most recent commits. |
 
 When the workspace was checked out with the default shallow depth, commands like `git log` return only the tip commit, so contributor-based ownership inference is not possible. In that case:
 
@@ -66,7 +66,6 @@ Read only the files needed to document the project accurately:
 - Package manifests and lockfiles for project name, description, dependencies, scripts, and library entrypoints.
 - Build/test tooling files such as `Makefile`, task runners, CI workflows, or language-specific config.
 - Public API or entrypoint files, when needed, to determine whether the repo is a library, service, CLI, or app.
-- Existing contribution or support files such as `CONTRIBUTING.md`, `SUPPORT.md`, `.github/ISSUE_TEMPLATE`, and `CODEOWNERS`.
 
 Keep the existing README content intact when aligning; replace or reorganize only what is needed to satisfy the required sections.
 
