@@ -5,19 +5,21 @@ description: "Updates repository documentation by aligning or creating a root RE
 
 # Update Repository Docs
 
-Align a repository's root `README.md` with the project's current behavior, include high-level guidance about related repositories and dependencies, and create a `CODEOWNERS` file only when one does not already exist.
+Align the repository's root `README.md` with the project's current behavior, and include high-level guidance on related repositories and dependencies.
+Create or update an AGENTS.md file with the in-use agents initialization functionality. Keep AGENTS.md files short.
 
 ## Use this skill when
 
-- Asked to create, update, refresh, or align repository documentation.
+- Asked to create, update, refresh, or align repository docs.
 - Asked to generate a root `README.md` for an existing repository.
 - Asked to explain how a repository fits into a larger system or depends on adjacent repositories.
 - Asked to infer support or ownership from repository contributor history.
-- Asked to add `CODEOWNERS`, but only if the repository does not already have one.
 
 ## Core principle
 
-Prefer repository evidence over guesses. Documentation should describe what the repository currently does, how to install or set it up, how to use it when it is a library, how it connects to important adjacent system components, and where to get support. Ownership metadata must preserve any existing `CODEOWNERS` file.
+Prefer repository evidence over guesses. docs should describe what the repository currently does, how to install or set it up, how to use it as a library, how it connects to important adjacent system components, and where to get support.
+
+Stale repositories should not be updated; only update those with recent commit activity within the last 60 days.
 
 ## Workflow
 
@@ -26,22 +28,47 @@ Prefer repository evidence over guesses. Documentation should describe what the 
 Work from the repository root unless the user provides another path. Confirm the root with local files such as:
 
 - package manifests: `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `pom.xml`, `build.gradle`, `Gemfile`
-- existing docs: `README.md`, `CONTRIBUTING.md`, `docs/`
+- existing docs: `README.md`, `CONTRIBUTING.md`, `docs/.`
 - CI or build files: `Makefile`, `.github/workflows/`, `Dockerfile`
 
-Do not update nested package READMEs unless the user explicitly asks.
+Do not update the READMEs of nested packages unless the user explicitly asks.
 
-### 2. Inspect existing documentation and project evidence
+#### Ensure the workspace has enough git history
+
+This skill needs access to git history to identify recent, frequent changes. When running inside a Sourcegraph Batch Changes workspace, the batch spec controls how much history is fetched into the workspace.
+
+In **batch spec v3**, this is configured at the top level via `checkout.fetchDepth`:
+
+```yaml
+version: 3
+checkout:
+  fetchDepth: 0   # 0 = full git history; 1 = shallow (default); N = N most recent commits
+```
+
+| Value | Behavior |
+|---|---|
+| `1` (default) | Shallow clone — only the target commit. Not enough to infer ownership from history. |
+| `0` | Full git history. Required for contributor-based CODEOWNERS inference. |
+| `N > 1` | The N most recent commits. Useful when only recent contributors matter. |
+
+When the workspace was checked out with the default shallow depth, commands like `git log` return only the tip commit, so contributor-based ownership inference is not possible. In that case:
+
+- Ask the user to re-run with `checkout.fetchDepth: 0` (or a large `N`) so the workspace has enough history. The `checkout` key is reserved for the batch change agent and is only available in v3 batch specs.
+- If re-running is not an option, fall back to signals that do not require history (existing metadata)
+
+Separately, the `workspaces.onlyFetchWorkspace` field controls **which directories** are downloaded, not history depth.
+
+### 2. Inspect existing docs and project evidence
 
 Read only the files needed to document the project accurately:
 
 - Existing root `README.md`, if present.
 - Package manifests and lockfiles for project name, description, dependencies, scripts, and library entrypoints.
 - Build/test tooling files such as `Makefile`, task runners, CI workflows, or language-specific config.
-- Public API or entrypoint files when needed to determine whether the repo is a library, service, CLI, or app.
+- Public API or entrypoint files, when needed, to determine whether the repo is a library, service, CLI, or app.
 - Existing contribution or support files such as `CONTRIBUTING.md`, `SUPPORT.md`, `.github/ISSUE_TEMPLATE`, and `CODEOWNERS`.
 
-Keep existing correct README content when aligning; replace or reorganize only what is needed to satisfy the required sections.
+Keep the existing README content intact when aligning; replace or reorganize only what is needed to satisfy the required sections.
 
 ### 3. Explore related repositories and dependencies
 
@@ -64,34 +91,7 @@ When another repository appears important and is available locally or through So
 
 Do not turn README generation into a full architecture assessment. Summarize direct, user-relevant relationships at a high level and avoid speculative transitive dependencies.
 
-### 4. Preserve existing CODEOWNERS
-
-Before generating `CODEOWNERS`, check all common locations:
-
-- `CODEOWNERS`
-- `.github/CODEOWNERS`
-- `docs/CODEOWNERS`
-
-If any exists, do not create or overwrite another one. Reference the existing file in the README Support section.
-
-If none exists, generate a root `CODEOWNERS` file. Prefer root `CODEOWNERS` for simplicity unless repository conventions clearly require `.github/CODEOWNERS`.
-
-### 5. Explore contributor history for ownership
-
-If local history is shallow or unavailable and Sourcegraph tools are available, use commit search tools to identify recent or frequent contributors for the repository.
-
-Convert contributors to CODEOWNERS handles only when a handle is directly available from existing repository metadata, prior CODEOWNERS examples, or user-provided information. Do not guess GitHub usernames from names or email addresses.
-
-When handles cannot be determined, use a conservative placeholder comment instead of invalid owners:
-
-```text
-# TODO: Replace with repository owner handles inferred from contributor history.
-* @example/team
-```
-
-If a likely organization or team is evident from existing metadata, prefer a team owner such as `@org/team` over individual contributors. Ask the user only if valid owner handles cannot be inferred and generating placeholder ownership would be unhelpful for the task.
-
-### 6. Generate or align README.md
+### 4. Generate or align README.md
 
 Follow the Make a README structure and include these sections in order:
 
@@ -100,7 +100,6 @@ Follow the Make a README structure and include these sections in order:
 3. `## Setup` with installation or setup instructions
 4. `## Usage` only if the repository is a library
 5. `## System context` when related repositories or dependencies are important to understand the project
-6. `## Support` referencing the repository's `CODEOWNERS` file
 
 Use the actual project name in the H1, not the literal word `Name`.
 
@@ -111,7 +110,6 @@ Section guidance:
 - **Setup**: Include the package manager, language version, install command, bootstrap command, build command, or environment prerequisites supported by repository evidence.
 - **Usage**: Include only for libraries. Show the smallest realistic import or API example from public APIs or documented exports. Omit this section for services, CLIs, documentation-only repos, or apps unless the user asks.
 - **System context**: Include a concise bullet list or small table of important adjacent repositories, services, libraries, contracts, infrastructure modules, or external dependencies. Explain the relationship and cite repository-relative files when useful.
-- **Support**: Point readers to `CODEOWNERS` for ownership and support routing. If support docs or issue templates exist, reference them too.
 
 Do not invent badges, screenshots, roadmaps, license claims, deployment instructions, or API examples that are not supported by repo evidence.
 
@@ -121,19 +119,17 @@ Do not invent badges, screenshots, roadmaps, license claims, deployment instruct
 - Remove stale or contradictory content only when repository evidence proves it is wrong.
 - Prefer short setup commands over long prose.
 - Use fenced code blocks for commands and examples.
-- Link repository-relative files with Markdown links, for example `[CODEOWNERS](CODEOWNERS)`.
-- Keep system-context guidance high level; link to deeper architecture docs instead of duplicating them.
+- Link repository-relative files with Markdown links
+- Keep system-context guidance at a high level; link to deeper architecture docs instead of duplicating them.
 - Do not create issues, pull requests, tickets, or external docs without explicit confirmation.
 
-### 8. Verify the documentation update
+### 8. Verify the docs update
 
 Run the narrowest useful checks:
 
 - Confirm required README sections exist in order.
 - Confirm `## Usage` is present only when the repository is a library.
 - Confirm `## System context` is present when related repositories or dependencies materially explain the project.
-- Confirm the Support section references the actual `CODEOWNERS` path.
-- Confirm no existing `CODEOWNERS` file was overwritten.
 - Optionally run a Markdown formatter or lint command only if the repository already provides one.
 
 Useful local checks:
@@ -141,7 +137,7 @@ Useful local checks:
 ```sh
 test -f README.md
 rg '^# |^## (Description|Setup|Usage|Support)' README.md
-test -f CODEOWNERS -o -f .github/CODEOWNERS -o -f docs/CODEOWNERS
+test -f AGENTS.md
 ```
 
 ## Output format
@@ -149,15 +145,13 @@ test -f CODEOWNERS -o -f .github/CODEOWNERS -o -f docs/CODEOWNERS
 When done, report:
 
 - Files changed.
-- Whether README was created or aligned.
-- What related repositories or dependencies were inspected for system context.
-- Whether CODEOWNERS was preserved or generated, and what contributor evidence was used.
+- Whether the README was created or aligned.
+- Whether AGENTS.md was created or aligned.
+- What related repositories or dependencies were inspected for system context?
 - Verification command and result.
 
 ## Important constraints
 
-- Never overwrite an existing `CODEOWNERS` file.
-- Never generate CODEOWNERS owners from guessed usernames.
 - Do not broaden the task into full docs restructuring.
 - Do not expand system-context discovery beyond direct dependencies and adjacent repositories unless requested.
 - Do not add unsupported claims or examples to the README.
