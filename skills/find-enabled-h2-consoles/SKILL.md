@@ -3,6 +3,7 @@ name: find-enabled-h2-consoles
 description: "Finds repositories with Maven or Gradle build files whose Spring Boot application configuration explicitly enables the H2 console. Use for Sourcegraph-based H2 console exposure audits across many repositories."
 allowed-tools:
   - mcp__sourcegraph__keyword_search
+  - mcp__sourcegraph__code_finder
   - mcp__sourcegraph__evaluator
   - mcp__sourcegraph__read_file
   - mcp__sourcegraph__list_repos
@@ -98,9 +99,39 @@ vendor/
 
 Do not exclude `src/test/resources` or profile-specific files by default. Report their source set or path so the user can distinguish test-only findings from deployable configuration.
 
-### 4. Use the evaluator for exhaustive correlation
+For a named repository whose layout is unclear — a monorepo, a non-standard module layout, or many profile files — use `mcp__sourcegraph__code_finder` to locate the configuration files instead of guessing at path patterns. See step 4.
 
-Use `mcp__sourcegraph__evaluator` when scanning more than a few repositories. One evaluator script should:
+### 4. Choose the correlation tool for the scope
+
+Match the tool to the size of the scan. Do not reach for the evaluator by default; it is the heaviest option and is meant for exhaustive aggregation that the other tools cannot reach within their result caps.
+
+| Situation | Tool |
+| --- | --- |
+| Confirming which paths exist for one scoped query | `mcp__sourcegraph__keyword_search` |
+| One repository, or a handful of named repositories | `mcp__sourcegraph__code_finder` |
+| A known repository with an unclear layout: monorepo, non-standard modules, many profiles | `mcp__sourcegraph__code_finder` |
+| Dozens or more repositories needing exhaustive correlation and aggregate counts | `mcp__sourcegraph__evaluator` |
+
+#### Using `code_finder`
+
+`code_finder` is a per-repository file-finding agent. Identify repositories with step 2 first, then call it once per repository — do not hand it cross-repository discovery.
+
+Name the repository first, state what you already know so it does not re-search it, and state explicit success criteria:
+
+```text
+In github.com/acme/orders, find every Spring Boot application configuration file
+(application.properties, application.yml, application.yaml, and profile variants
+application-<profile>.*) and report which ones assign spring.h2.console.enabled.
+I already know the repo has pom.xml at the root and a services/ module directory.
+Skip target/ and build/ output. Return file paths with line numbers for each
+spring.h2.console.enabled assignment.
+```
+
+`code_finder` returns relevant paths and line ranges with context. It does not perform the literal-`true` classification, and its output is not evidence of exhaustive coverage. Read the returned paths with `mcp__sourcegraph__read_file` and classify them with steps 5 and 6. When completeness matters, confirm the file list with a scoped `type:path` query from step 3.
+
+#### Using the evaluator
+
+Use `mcp__sourcegraph__evaluator` when the repository count makes per-repository calls impractical, or when the report needs exhaustive counts across the whole scope. One evaluator script should:
 
 1. Search for build-marker paths and collect candidate repositories.
 2. Search for matching application configuration paths.
@@ -157,7 +188,9 @@ Do not use a regex match for `enabled:` without proving that it is nested under 
 
 Use `mcp__sourcegraph__read_file` to inspect at least one explicit **Enabled** result and every parser edge case before reporting.
 
-If direct inspection contradicts the aggregate parser, correct the classification and adjust the parsing approach before completing the scan.
+If direct inspection contradicts the aggregate parser, correct the classification and adjust the parsing approach before completing the scan. Verify with `read_file`, not with a second evaluator run.
+
+When a repository's coverage is in doubt — an evaluator search hit a cap, or a path pattern may have missed a module — re-check that single repository with `mcp__sourcegraph__code_finder` and reconcile the file lists.
 
 ### 8. Report with traceability
 
