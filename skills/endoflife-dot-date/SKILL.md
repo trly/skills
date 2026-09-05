@@ -1,12 +1,12 @@
 ---
-name: checking-dependency-support
+name: endoflife-dot-date
 description: "Checks dependency and product support lifecycle status using the endoflife.date API. Use when asked whether a dependency version is still supported, what versions are receiving security updates, when a version reaches end-of-life, or whether an upgrade is needed."
 allowed-tools:
   - shell_command
   - shell_command_status
 ---
 
-# Checking Dependency Support
+# endoflife.date
 
 Query the [endoflife.date](https://endoflife.date) API to determine which dependency versions are still receiving support, which have reached end-of-life, and when supported versions will expire.
 
